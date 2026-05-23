@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>밥약 지도</title>
+<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600&display=swap" rel="stylesheet">
+<script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=f4cf67e7884fc242949becb35719cff0&libraries=services"></script>
+<style>
+  :root {
+    --bg: #F5F3FF;
+    --purple: #5B4FCF;
+    --purple-light: #EDE9FF;
+    --purple-mid: #A89EE8;
+    --purple-dark: #3A2FA8;
+    --teal: #12B886;
+    --teal-light: #E0FAF1;
+    --amber: #F59F00;
+    --amber-light: #FFF3CC;
+    --coral: #E8543A;
+    --coral-light: #FDECEA;
+    --white: #FFFFFF;
+    --gray1: #F1EFF8;
+    --gray2: #C9C4E0;
+    --gray3: #8880B0;
+    --gray4: #4A4565;
+    --text: #1E1A3C;
+    --radius: 18px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overflow: hidden; background: #2D2750; display: flex; align-items: center; justify-content: center; font-family: 'Pretendard', sans-serif; }
+
+  .phone-shell {
+    width: 375px;
+    height: 812px;
+    background: var(--bg);
+    border-radius: 44px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 40px 80px rgba(0,0,0,.5);
+  }
+
+  /* ── Screens ── */
+  .screen {
+    position: absolute; inset: 0;
+    overflow: hidden;
+    transition: transform .35s cubic-bezier(.4,0,.2,1), opacity .35s;
+    will-change: transform;
+  }
+  .screen.hidden { transform: translateX(100%); pointer-events: none; }
+  .screen.slide-back { transform: translateX(-30%); pointer-events: none; }
+
+  /* ── Status bar ── */
+  .status {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 16px 24px 0; font-size: 12px; font-weight: 500; color: var(--gray3);
+  }
+  .status-icons { display: flex; gap: 6px; align-items: center; }
+  .status-icons svg { width: 14px; height: 14px; fill: var(--gray3); }
+
+  /* ══ HOME SCREEN ══ */
+  #home { background: var(--bg); }
+  .home-header {
+    padding: 12px 22px 16px;
+    display: flex; justify-content: space-between; align-items: flex-end;
+  }
+  .home-header h1 { font-size: 22px; font-weight: 600; color: var(--text); line-height: 1.2; }
+  .home-header p { font-size: 12px; color: var(--gray3); margin-top: 3px; display: flex; align-items: center; gap: 3px; }
+  .avatar-btn {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: var(--purple-light); border: 2px solid var(--purple-mid);
+    display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;
+  }
+  .avatar-btn svg { width: 20px; height: 20px; stroke: var(--purple); fill: none; stroke-width: 2; }
+
+  /* Search */
+  .search-box {
+    margin: 0 20px 14px;
+    background: var(--white); border: 1.5px solid var(--purple-light);
+    border-radius: 14px; display: flex; align-items: center; gap: 10px; padding: 11px 14px;
+    cursor: text; transition: border-color .2s;
+  }
+  .search-box:focus-within { border-color: var(--purple-mid); }
+  .search-box svg { width: 17px; height: 17px; stroke: var(--purple-mid); fill: none; stroke-width: 2; flex-shrink: 0; }
+  .search-box input { border: none; outline: none; flex: 1; font-size: 14px; font-family: inherit; color: var(--text); background: transparent; }
+  .search-box input::placeholder { color: var(--gray2); }
+
+  /* Filter chips */
+  .chips { display: flex; gap: 7px; padding: 0 20px 14px; overflow-x: auto; scrollbar-width: none; }
+  .chips::-webkit-scrollbar { display: none; }
+  .chip {
+    font-size: 12px; padding: 6px 14px; border-radius: 20px; white-space: nowrap;
+    border: 1.5px solid var(--gray2); color: var(--gray3); background: var(--white);
+    cursor: pointer; transition: all .15s; font-family: inherit; font-weight: 500;
+  }
+  .chip.on { background: var(--purple); border-color: var(--purple); color: var(--white); }
+
+  /* Map */
+  .map-card {
+    margin: 0 20px 14px;
+    border-radius: 20px; overflow: hidden;
+    height: 152px; position: relative;
+    background: linear-gradient(135deg, #DDD8F8 0%, #EAE6FF 100%);
+    border: 1.5px solid var(--purple-light);
+    cursor: pointer;
+  }
+  .map-lines { position: absolute; inset: 0; }
+  .map-pin-wrap { position: absolute; display: flex; flex-direction: column; align-items: center; }
+  .map-pin-label {
+    font-size: 10px; font-weight: 600; padding: 4px 9px;
+    border-radius: 20px; white-space: nowrap; font-family: inherit;
+    box-shadow: 0 2px 8px rgba(0,0,0,.15);
+  }
+  .map-pin-dot { width: 7px; height: 7px; border-radius: 50%; margin-top: 3px; }
+  .map-expand {
+    position: absolute; bottom: 12px; right: 12px;
+    background: var(--white); border-radius: 10px; padding: 6px 10px;
+    font-size: 11px; font-weight: 500; color: var(--purple); cursor: pointer;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .my-pin {
+    position: absolute; bottom: 36px; right: 52px;
+    width: 20px; height: 20px; background: var(--purple);
+    border-radius: 50%; border: 3px solid var(--white);
+    box-shadow: 0 0 0 4px rgba(91,79,207,.2);
+  }
+
+  /* Section */
+  .sec-row { display: flex; justify-content: space-between; align-items: center; padding: 0 20px 10px; }
+  .sec-title { font-size: 14px; font-weight: 600; color: var(--text); }
+  .sec-all { font-size: 12px; color: var(--purple); font-weight: 500; cursor: pointer; }
+
+  /* Restaurant cards */
+  .rcards { display: flex; flex-direction: column; gap: 9px; padding: 0 20px; overflow-y: auto; max-height: 296px; scrollbar-width: none; }
+  .rcards::-webkit-scrollbar { display: none; }
+  .rcard {
+    background: var(--white); border-radius: 16px;
+    border: 1.5px solid #EDEAF8; padding: 13px 14px;
+    display: flex; gap: 12px; align-items: center; cursor: pointer;
+    transition: transform .12s, box-shadow .12s; active-scale: .98;
+  }
+  .rcard:active { transform: scale(.98); }
+  .rcard.featured { border-color: var(--purple-mid); }
+  .rcard-icon { width: 46px; height: 46px; border-radius: 13px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .rcard-icon svg { width: 22px; height: 22px; stroke-width: 1.8; fill: none; }
+  .rcard-body { flex: 1; min-width: 0; }
+  .rcard-name { font-size: 14px; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 6px; }
+  .badge { font-size: 10px; padding: 2px 7px; border-radius: 20px; font-weight: 500; }
+  .badge-hot { background: var(--coral-light); color: var(--coral); }
+  .badge-new { background: var(--teal-light); color: var(--teal); }
+  .rcard-meta { font-size: 11px; color: var(--gray3); margin-top: 3px; display: flex; align-items: center; gap: 6px; }
+  .rcard-stars { color: var(--amber); }
+  .rcard-right { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex-shrink: 0; }
+  .price-pill { font-size: 11px; font-weight: 600; padding: 4px 9px; border-radius: 20px; background: var(--purple-light); color: var(--purple-dark); }
+  .dist-pill { font-size: 10px; color: var(--gray3); display: flex; align-items: center; gap: 2px; }
+  .dist-pill svg { width: 11px; height: 11px; stroke: var(--gray3); fill: none; stroke-width: 2; }
+
+  /* Bottom nav */
+  .bnav {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: var(--white); border-top: 1px solid #EDEAF8;
+    display: flex; justify-content: space-around; align-items: center;
+    padding: 10px 10px 20px;
+  }
+  .bnav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; padding: 4px 12px; }
+  .bnav-item svg { width: 22px; height: 22px; stroke-width: 1.8; fill: none; transition: stroke .15s; }
+  .bnav-item span { font-size: 10px; font-weight: 500; transition: color .15s; }
+  .bnav-item.active svg { stroke: var(--purple); }
+  .bnav-item.active span { color: var(--purple); }
+  .bnav-item:not(.active) svg { stroke: var(--gray2); }
+  .bnav-item:not(.active) span { color: var(--gray2); }
+  .bnav-add {
+    width: 52px; height: 52px; background: var(--purple); border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    margin-top: -20px; cursor: pointer; flex-shrink: 0;
+    box-shadow: 0 4px 16px rgba(91,79,207,.4);
+    transition: transform .15s;
+  }
+  .bnav-add:active { transform: scale(.93); }
+  .bnav-add svg { width: 24px; height: 24px; stroke: white; fill: none; stroke-width: 2.2; }
+
+  /* ══ DETAIL SCREEN ══ */
+  #detail { background: var(--white); }
+  .detail-hero {
+    height: 220px; position: relative;
+    background: linear-gradient(160deg, #DDD8F8, #C8C0F0);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .detail-hero-icon { width: 80px; height: 80px; border-radius: 24px; display: flex; align-items: center; justify-content: center; }
+  .detail-hero-icon svg { width: 40px; height: 40px; stroke-width: 1.5; fill: none; }
+  .back-btn {
+    position: absolute; top: 56px; left: 16px;
+    width: 36px; height: 36px; border-radius: 50%;
+    background: rgba(255,255,255,.85); display: flex; align-items: center; justify-content: center;
+    cursor: pointer; backdrop-filter: blur(8px);
+  }
+  .back-btn svg { width: 18px; height: 18px; stroke: var(--text); fill: none; stroke-width: 2.2; }
+  .fav-btn {
+    position: absolute; top: 56px; right: 16px;
+    width: 36px; height: 36px; border-radius: 50%;
+    background: rgba(255,255,255,.85); display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+  }
+  .fav-btn svg { width: 18px; height: 18px; stroke: var(--coral); fill: none; stroke-width: 2.2; transition: fill .2s; }
+  .fav-btn.on svg { fill: var(--coral); }
+  .detail-body { padding: 20px 22px; overflow-y: auto; height: calc(812px - 220px - 56px); scrollbar-width: none; }
+  .detail-body::-webkit-scrollbar { display: none; }
+  .detail-name { font-size: 22px; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 8px; }
+  .detail-sub { font-size: 13px; color: var(--gray3); margin-top: 5px; display: flex; align-items: center; gap: 8px; }
+  .detail-rating { display: flex; align-items: center; gap: 6px; margin: 14px 0; }
+  .big-stars { font-size: 18px; color: var(--amber); }
+  .rating-val { font-size: 18px; font-weight: 600; color: var(--text); }
+  .rating-cnt { font-size: 13px; color: var(--gray3); }
+  .tag-row { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 18px; }
+  .dtag { font-size: 12px; padding: 5px 12px; border-radius: 20px; background: var(--gray1); color: var(--gray4); font-weight: 500; }
+  .info-section { margin-bottom: 18px; }
+  .info-title { font-size: 13px; font-weight: 600; color: var(--gray3); margin-bottom: 10px; text-transform: uppercase; letter-spacing: .05em; }
+  .info-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--gray1); font-size: 14px; color: var(--text); }
+  .info-row svg { width: 17px; height: 17px; stroke: var(--purple-mid); fill: none; stroke-width: 2; flex-shrink: 0; }
+  .review-card { background: var(--gray1); border-radius: 14px; padding: 14px; margin-bottom: 10px; }
+  .review-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .reviewer { font-size: 13px; font-weight: 600; color: var(--text); }
+  .review-stars { font-size: 13px; color: var(--amber); }
+  .review-text { font-size: 13px; color: var(--gray4); line-height: 1.6; }
+  .cta-bar { padding: 12px 22px 20px; background: var(--white); }
+  .cta-btn {
+    width: 100%; padding: 16px; border-radius: 16px;
+    background: var(--purple); color: var(--white);
+    font-size: 15px; font-weight: 600; font-family: inherit;
+    border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+    transition: transform .12s, background .15s;
+  }
+  .cta-btn:active { transform: scale(.97); background: var(--purple-dark); }
+  .cta-btn svg { width: 18px; height: 18px; stroke: white; fill: none; stroke-width: 2.2; }
+
+  /* ══ MAP SCREEN ══ */
+  #mapscreen { background: #E8E4F8; }
+  .map-full { width: 100%; height: 100%; position: relative; overflow: hidden; }
+  .map-bg { position: absolute; inset: 0; }
+  .map-top-bar {
+    position: absolute; top: 0; left: 0; right: 0;
+    padding: 52px 16px 12px; display: flex; gap: 10px; align-items: center;
+  }
+  .map-back {
+    width: 38px; height: 38px; border-radius: 50%; background: var(--white);
+    display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(0,0,0,.12);
+  }
+  .map-back svg { width: 18px; height: 18px; stroke: var(--text); fill: none; stroke-width: 2.2; }
+  .map-search {
+    flex: 1; background: var(--white); border-radius: 14px;
+    padding: 10px 14px; font-size: 14px; color: var(--gray3);
+    display: flex; align-items: center; gap: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.12);
+  }
+  .map-search svg { width: 16px; height: 16px; stroke: var(--gray2); fill: none; stroke-width: 2; }
+  .floating-pins { position: absolute; inset: 0; }
+  .fpin { position: absolute; display: flex; flex-direction: column; align-items: center; cursor: pointer; }
+  .fpin-label {
+    font-size: 12px; font-weight: 600; padding: 6px 12px;
+    border-radius: 22px; white-space: nowrap; font-family: inherit;
+    box-shadow: 0 3px 12px rgba(0,0,0,.2);
+  }
+  .fpin-tail { width: 8px; height: 8px; border-radius: 50%; margin-top: 4px; }
+  .my-dot {
+    position: absolute; width: 22px; height: 22px;
+    background: var(--purple); border-radius: 50%;
+    border: 3px solid white; box-shadow: 0 0 0 6px rgba(91,79,207,.2);
+  }
+  .map-bottom-sheet {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: var(--white); border-radius: 24px 24px 0 0;
+    padding: 12px 20px 30px;
+    box-shadow: 0 -4px 24px rgba(0,0,0,.1);
+  }
+  .sheet-handle { width: 36px; height: 4px; background: var(--gray2); border-radius: 20px; margin: 0 auto 14px; }
+  .sheet-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 12px; }
+  .sheet-cards { display: flex; gap: 10px; overflow-x: auto; scrollbar-width: none; padding-bottom: 4px; }
+  .sheet-cards::-webkit-scrollbar { display: none; }
+  .scard {
+    min-width: 140px; background: var(--gray1); border-radius: 14px;
+    padding: 12px; cursor: pointer; flex-shrink: 0; transition: transform .12s;
+  }
+  .scard:active { transform: scale(.97); }
+  .scard-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: 8px; }
+  .scard-icon svg { width: 18px; height: 18px; stroke-width: 1.8; fill: none; }
+  .scard-name { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+  .scard-sub { font-size: 10px; color: var(--gray3); }
+  .scard-price { font-size: 11px; font-weight: 600; color: var(--purple); margin-top: 6px; }
+
+  /* toast */
+  .toast {
+    position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: var(--text); color: white; padding: 10px 20px; border-radius: 20px;
+    font-size: 13px; font-weight: 500; opacity: 0; transition: all .3s; pointer-events: none; white-space: nowrap;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<!-- ══ HOME ══ -->
+<div class="phone-shell">
+
+  <div class="screen" id="home">
+    <div style="height:100%;display:flex;flex-direction:column;">
+      <div class="status">
+        <span>9:41</span>
+        <div class="status-icons">
+          <svg viewBox="0 0 24 24"><path d="M1 6s4-4 11-4 11 4 11 4M5 10s2.5-2.5 7-2.5S19 10 19 10M9 14s1.5-1.5 3-1.5 3 1.5 3 1.5M13 18h.01" stroke="#8880B0" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+          <svg viewBox="0 0 24 24"><rect x="2" y="7" width="18" height="11" rx="2" stroke="#8880B0" stroke-width="2"/><path d="M22 11v3" stroke="#8880B0" stroke-width="2" stroke-linecap="round"/></svg>
+        </div>
+      </div>
+
+      <div class="home-header">
+        <div>
+          <h1>밥약 지도</h1>
+          <p>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            충남대학교 근처
+          </p>
+        </div>
+        <div class="avatar-btn">
+          <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </div>
+      </div>
+
+      <div class="search-box">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input type="text" placeholder="음식점, 메뉴 검색..." />
+        <svg viewBox="0 0 24 24"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="20" y2="12"/><line x1="12" y1="18" x2="20" y2="18"/></svg>
+      </div>
+
+      <div class="chips">
+        <button class="chip on" onclick="toggleChip(this)">전체</button>
+        <button class="chip" onclick="toggleChip(this)">1만원대</button>
+        <button class="chip" onclick="toggleChip(this)">2만원대</button>
+        <button class="chip" onclick="toggleChip(this)">조용함</button>
+        <button class="chip" onclick="toggleChip(this)">웨이팅 없음</button>
+        <button class="chip" onclick="toggleChip(this)">분위기 있음</button>
+      </div>
+
+      <div class="map-card" onclick="goTo('mapscreen')">
+        <svg class="map-lines" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+          <defs><pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M24 0L0 0 0 24" fill="none" stroke="#8880B0" stroke-width=".5" opacity=".3"/></pattern></defs>
+          <rect width="100%" height="100%" fill="url(#grid)"/>
+          <line x1="0" y1="80" x2="335" y2="80" stroke="#8880B0" stroke-width="1" opacity=".15"/>
+          <line x1="0" y1="40" x2="335" y2="40" stroke="#8880B0" stroke-width="1" opacity=".1"/>
+          <line x1="80" y1="0" x2="80" y2="152" stroke="#8880B0" stroke-width="1" opacity=".15"/>
+          <line x1="200" y1="0" x2="200" y2="152" stroke="#8880B0" stroke-width="1" opacity=".1"/>
+        </svg>
+        <div class="map-pin-wrap" style="top:22px;left:70px">
+          <div class="map-pin-label" style="background:#5B4FCF;color:white">파스타노트</div>
+          <div class="map-pin-dot" style="background:#5B4FCF"></div>
+        </div>
+        <div class="map-pin-wrap" style="top:55px;left:185px">
+          <div class="map-pin-label" style="background:#12B886;color:white">온기식당</div>
+          <div class="map-pin-dot" style="background:#12B886"></div>
+        </div>
+        <div class="map-pin-wrap" style="top:90px;left:40px">
+          <div class="map-pin-label" style="background:#F59F00;color:white">대삼겹</div>
+          <div class="map-pin-dot" style="background:#F59F00"></div>
+        </div>
+        <div class="my-pin"></div>
+        <div class="map-expand">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#5B4FCF" stroke-width="2.5"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+          지도 전체보기
+        </div>
+      </div>
+
+      <div class="sec-row">
+        <span class="sec-title">충남대 주변 추천</span>
+        <span class="sec-all">전체보기 →</span>
+      </div>
+
+      <div class="rcards">
+        <div class="rcard featured" onclick="goDetail(0)">
+          <div class="rcard-icon" style="background:#EDE9FF">
+            <svg viewBox="0 0 24 24" stroke="#5B4FCF"><path d="M3 11l19-9-9 19-2-8-8-2z"/></svg>
+          </div>
+          <div class="rcard-body">
+            <div class="rcard-name">파스타노트 <span class="badge badge-hot">인기</span></div>
+            <div class="rcard-meta"><span class="rcard-stars">★★★★★</span> 4.7 · 이탈리안 · 후문</div>
+          </div>
+          <div class="rcard-right">
+            <span class="price-pill">2만원대</span>
+            <span class="dist-pill"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>5분</span>
+          </div>
+        </div>
+
+        <div class="rcard" onclick="goDetail(1)">
+          <div class="rcard-icon" style="background:#E0FAF1">
+            <svg viewBox="0 0 24 24" stroke="#12B886"><path d="M3 3h18v18H3zM3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
+          </div>
+          <div class="rcard-body">
+            <div class="rcard-name">온기식당 <span class="badge badge-new">신규</span></div>
+            <div class="rcard-meta"><span class="rcard-stars">★★★★☆</span> 4.2 · 한식 · 정문</div>
+          </div>
+          <div class="rcard-right">
+            <span class="price-pill">1만원대</span>
+            <span class="dist-pill"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>3분</span>
+          </div>
+        </div>
+
+        <div class="rcard" onclick="goDetail(2)">
+          <div class="rcard-icon" style="background:#FFF3CC">
+            <svg viewBox="0 0 24 24" stroke="#F59F00"><path d="M12 2a10 10 0 000 20"/><path d="M12 2c2.8 4 4 8 4 10s-1.2 6-4 10"/><path d="M2 12h20"/></svg>
+          </div>
+          <div class="rcard-body">
+            <div class="rcard-name">대삼겹</div>
+            <div class="rcard-meta"><span class="rcard-stars">★★★★☆</span> 4.0 · 고기 · 쪽문</div>
+          </div>
+          <div class="rcard-right">
+            <span class="price-pill">1만원대</span>
+            <span class="dist-pill"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>2분</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="bnav">
+        <div class="bnav-item active">
+          <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          <span>홈</span>
+        </div>
+        <div class="bnav-item" onclick="goTo('mapscreen')">
+          <svg viewBox="0 0 24 24"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+          <span>지도</span>
+        </div>
+        <div class="bnav-add" onclick="showToast('밥약 기록 추가!')">
+          <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </div>
+        <div class="bnav-item" onclick="showToast('찜한 맛집')">
+          <svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
+          <span>찜</span>
+        </div>
+        <div class="bnav-item" onclick="showToast('마이페이지')">
+          <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <span>마이</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ DETAIL ══ -->
+  <div class="screen hidden" id="detail">
+    <div style="height:100%;display:flex;flex-direction:column;">
+      <div class="detail-hero" id="detail-hero">
+        <div class="back-btn" onclick="goBack()">
+          <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+        </div>
+        <div class="fav-btn" id="fav-btn" onclick="toggleFav()">
+          <svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
+        </div>
+        <div class="detail-hero-icon" id="detail-hero-icon"></div>
+      </div>
+
+      <div class="detail-body">
+        <div class="detail-name" id="detail-name"></div>
+        <div class="detail-sub" id="detail-sub"></div>
+        <div class="detail-rating">
+          <span class="big-stars" id="detail-stars"></span>
+          <span class="rating-val" id="detail-rating-val"></span>
+          <span class="rating-cnt" id="detail-rating-cnt"></span>
+        </div>
+        <div class="tag-row" id="detail-tags"></div>
+        <div class="info-section">
+          <div class="info-title">정보</div>
+          <div class="info-row">
+            <svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            <span id="detail-addr"></span>
+          </div>
+          <div class="info-row">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span id="detail-hours"></span>
+          </div>
+          <div class="info-row">
+            <svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+            <span id="detail-price"></span>
+          </div>
+        </div>
+        <div class="info-section">
+          <div class="info-title">리뷰</div>
+          <div id="detail-reviews"></div>
+        </div>
+      </div>
+
+      <div class="cta-bar">
+        <button class="cta-btn" onclick="showToast('밥약 장소로 저장했어요!')">
+          <svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          밥약 장소로 저장하기
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ MAP SCREEN ══ -->
+  <div class="screen hidden" id="mapscreen">
+    <div class="map-full">
+      <div id="kakao-map" style="width:100%;height:100%;"></div>
+
+      <div class="map-top-bar">
+        <div class="map-back" onclick="goBack()">
+          <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+        </div>
+        <div class="map-search">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <span style="font-size:14px;color:#8880B0">충남대 주변 밥약 장소</span>
+        </div>
+      </div>
+
+      <div class="map-bottom-sheet">
+        <div class="sheet-handle"></div>
+        <div class="sheet-title">근처 밥약 장소 3곳</div>
+        <div class="sheet-cards">
+          <div class="scard" onclick="goDetail(0)">
+            <div class="scard-icon" style="background:#EDE9FF">
+              <svg viewBox="0 0 24 24" stroke="#5B4FCF"><path d="M3 11l19-9-9 19-2-8-8-2z"/></svg>
+            </div>
+            <div class="scard-name">파스타노트</div>
+            <div class="scard-sub">★★★★★ 4.7 · 후문 5분</div>
+            <div class="scard-price">2만원대</div>
+          </div>
+          <div class="scard" onclick="goDetail(1)">
+            <div class="scard-icon" style="background:#E0FAF1">
+              <svg viewBox="0 0 24 24" stroke="#12B886"><path d="M3 3h18v18H3zM3 9h18M9 3v18"/></svg>
+            </div>
+            <div class="scard-name">온기식당</div>
+            <div class="scard-sub">★★★★☆ 4.2 · 정문 3분</div>
+            <div class="scard-price">1만원대</div>
+          </div>
+          <div class="scard" onclick="goDetail(2)">
+            <div class="scard-icon" style="background:#FFF3CC">
+              <svg viewBox="0 0 24 24" stroke="#F59F00"><path d="M12 2a10 10 0 000 20"/><path d="M2 12h20"/></svg>
+            </div>
+            <div class="scard-name">대삼겹</div>
+            <div class="scard-sub">★★★★☆ 4.0 · 쪽문 2분</div>
+            <div class="scard-price">1만원대</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+const restaurants = [
+  {
+    name: '파스타노트', badge: '인기',
+    cat: '이탈리안', loc: '후문 도보 5분',
+    stars: '★★★★★', rating: '4.7', cnt: '리뷰 84개',
+    tags: ['분위기 있음','조용함','콘센트 있음','웨이팅 없음'],
+    addr: '대전 유성구 대학로 100', hours: '11:00 – 21:30 (월 휴무)',
+    price: '1인 평균 18,000원',
+    heroColor: '#EDE9FF', iconColor: '#5B4FCF',
+    reviews: [
+      {name:'충대생 A', stars:'★★★★★', text:'분위기 진짜 좋아요. 밥약으로 딱!'},
+      {name:'충대생 B', stars:'★★★★☆', text:'파스타 맛있고 조용해서 대화하기 좋아요.'}
+    ]
+  },
+  {
+    name: '온기식당', badge: '신규',
+    cat: '한식', loc: '정문 도보 3분',
+    stars: '★★★★☆', rating: '4.2', cnt: '리뷰 51개',
+    tags: ['조용함','웨이팅 없음','밥약 추천'],
+    addr: '대전 유성구 궁동 102-3', hours: '10:00 – 20:00 (주말 휴무)',
+    price: '1인 평균 9,000원',
+    heroColor: '#E0FAF1', iconColor: '#12B886',
+    reviews: [
+      {name:'충대생 C', stars:'★★★★★', text:'가성비 최고! 밥도 든든하게 먹을 수 있어요.'},
+      {name:'충대생 D', stars:'★★★★☆', text:'조용하고 깔끔해요.'}
+    ]
+  },
+  {
+    name: '대삼겹', badge: '',
+    cat: '고기', loc: '쪽문 도보 2분',
+    stars: '★★★★☆', rating: '4.0', cnt: '리뷰 38개',
+    tags: ['웨이팅 없음','주차 가능'],
+    addr: '대전 유성구 어은동 30-5', hours: '11:30 – 22:00',
+    price: '1인 평균 12,000원',
+    heroColor: '#FFF3CC', iconColor: '#F59F00',
+    reviews: [
+      {name:'충대생 E', stars:'★★★★☆', text:'삼겹 두툼하고 맛있어요.'},
+      {name:'충대생 F', stars:'★★★☆☆', text:'가깝고 편해요. 웨이팅 없어서 좋아요.'}
+    ]
+  }
+];
+
+let history = ['home'];
+let kakaoMap = null;
+
+const mapPlaces = [
+  { name: '파스타노트', lat: 36.3627, lng: 127.3461, color: '#5B4FCF', price: '2만원대', idx: 0 },
+  { name: '온기식당',   lat: 36.3645, lng: 127.3448, color: '#12B886', price: '1만원대', idx: 1 },
+  { name: '대삼겹',     lat: 36.3612, lng: 127.3455, color: '#F59F00', price: '1만원대', idx: 2 },
+];
+
+function initKakaoMap() {
+  if (kakaoMap) return;
+  const container = document.getElementById('kakao-map');
+  const options = {
+    center: new kakao.maps.LatLng(36.3630, 127.3455),
+    level: 4
+  };
+  kakaoMap = new kakao.maps.Map(container, options);
+
+  mapPlaces.forEach(p => {
+    const pos = new kakao.maps.LatLng(p.lat, p.lng);
+    const content = `<div onclick="goDetail(${p.idx})" style="
+      background:${p.color};color:white;
+      padding:6px 12px;border-radius:20px;
+      font-size:12px;font-weight:600;font-family:'Pretendard',sans-serif;
+      box-shadow:0 3px 10px rgba(0,0,0,.25);cursor:pointer;
+      white-space:nowrap;
+    ">${p.name} · ${p.price}</div>`;
+    const overlay = new kakao.maps.CustomOverlay({ position: pos, content, yAnchor: 1.4 });
+    overlay.setMap(kakaoMap);
+  });
+
+  // 내 위치 마커
+  const myPos = new kakao.maps.LatLng(36.3632, 127.3458);
+  const myContent = `<div style="
+    width:18px;height:18px;background:#5B4FCF;border-radius:50%;
+    border:3px solid white;box-shadow:0 0 0 5px rgba(91,79,207,.25);
+  "></div>`;
+  new kakao.maps.CustomOverlay({ position: myPos, content: myContent, yAnchor: 0.5 }).setMap(kakaoMap);
+}
+
+function goTo(id) {
+  const cur = document.getElementById(history[history.length-1]);
+  const next = document.getElementById(id);
+  cur.classList.add('slide-back');
+  next.classList.remove('hidden');
+  next.style.transform = 'translateX(100%)';
+  requestAnimationFrame(() => { next.style.transform = 'translateX(0)'; });
+  history.push(id);
+  if (id === 'mapscreen') setTimeout(initKakaoMap, 400);
+}
+
+function goBack() {
+  if(history.length <= 1) return;
+  const cur = document.getElementById(history.pop());
+  const prev = document.getElementById(history[history.length-1]);
+  cur.style.transform = 'translateX(100%)';
+  prev.classList.remove('slide-back');
+  prev.style.transform = 'translateX(0)';
+  setTimeout(() => { cur.classList.add('hidden'); cur.style.transform=''; }, 350);
+}
+
+function goDetail(idx) {
+  const r = restaurants[idx];
+  document.getElementById('detail-hero').style.background = r.heroColor;
+  document.getElementById('detail-hero-icon').innerHTML = `<div style="width:72px;height:72px;border-radius:22px;background:white;display:flex;align-items:center;justify-content:center"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="${r.iconColor}" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div>`;
+  document.getElementById('detail-name').innerHTML = r.name + (r.badge ? ` <span class="badge badge-hot">${r.badge}</span>` : '');
+  document.getElementById('detail-sub').innerHTML = `<span>${r.cat}</span><span>·</span><span>${r.loc}</span>`;
+  document.getElementById('detail-stars').textContent = r.stars;
+  document.getElementById('detail-rating-val').textContent = r.rating;
+  document.getElementById('detail-rating-cnt').textContent = r.cnt;
+  document.getElementById('detail-tags').innerHTML = r.tags.map(t => `<span class="dtag">${t}</span>`).join('');
+  document.getElementById('detail-addr').textContent = r.addr;
+  document.getElementById('detail-hours').textContent = r.hours;
+  document.getElementById('detail-price').textContent = r.price;
+  document.getElementById('detail-reviews').innerHTML = r.reviews.map(rv =>
+    `<div class="review-card"><div class="review-top"><span class="reviewer">${rv.name}</span><span class="review-stars">${rv.stars}</span></div><div class="review-text">${rv.text}</div></div>`
+  ).join('');
+  document.getElementById('fav-btn').classList.remove('on');
+  goTo('detail');
+}
+
+function toggleFav() {
+  document.getElementById('fav-btn').classList.toggle('on');
+  showToast(document.getElementById('fav-btn').classList.contains('on') ? '찜 목록에 추가했어요!' : '찜 목록에서 제거했어요');
+}
+
+function toggleChip(el) {
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('on'));
+  el.classList.add('on');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+</script>
+</body>
+</html>
