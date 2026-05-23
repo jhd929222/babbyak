@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>밥약 지도</title>
+<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600&display=swap" rel="stylesheet">
+<script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=f4cf67e7884fc242949becb35719cff0&libraries=services"></script>
+<style>
+:root {
+  --bg:#F5F3FF; --purple:#5B4FCF; --purple-light:#EDE9FF; --purple-mid:#A89EE8;
+  --purple-dark:#3A2FA8; --teal:#12B886; --teal-light:#E0FAF1; --amber:#F59F00;
+  --coral:#E8543A; --coral-light:#FDECEA; --white:#FFFFFF;
+  --gray1:#F1EFF8; --gray2:#C9C4E0; --gray3:#8880B0; --gray4:#4A4565; --text:#1E1A3C;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;background:#2D2750;display:flex;align-items:center;justify-content:center;font-family:'Pretendard',sans-serif}
+.phone-shell{width:375px;height:812px;background:var(--bg);border-radius:44px;overflow:hidden;position:relative;box-shadow:0 40px 80px rgba(0,0,0,.5)}
+.screen{position:absolute;inset:0;overflow:hidden;transition:transform .35s cubic-bezier(.4,0,.2,1);will-change:transform}
+.screen.hidden{transform:translateX(100%);pointer-events:none}
+.screen.slide-back{transform:translateX(-30%);pointer-events:none}
+
+/* status */
+.status{display:flex;justify-content:space-between;align-items:center;padding:16px 24px 0;font-size:12px;font-weight:500;color:var(--gray3)}
+
+/* home */
+#home{background:var(--bg);display:flex;flex-direction:column;height:100%}
+.home-header{padding:12px 22px 14px;display:flex;justify-content:space-between;align-items:flex-end}
+.home-header h1{font-size:22px;font-weight:600;color:var(--text)}
+.home-header p{font-size:12px;color:var(--gray3);margin-top:3px;display:flex;align-items:center;gap:3px}
+.avatar-btn{width:40px;height:40px;border-radius:50%;background:var(--purple-light);border:2px solid var(--purple-mid);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
+.avatar-btn svg{width:20px;height:20px;stroke:var(--purple);fill:none;stroke-width:2}
+.search-box{margin:0 20px 10px;background:var(--white);border:1.5px solid var(--purple-light);border-radius:14px;display:flex;align-items:center;gap:10px;padding:11px 14px}
+.search-box svg{width:17px;height:17px;stroke:var(--purple-mid);fill:none;stroke-width:2;flex-shrink:0}
+.search-box input{border:none;outline:none;flex:1;font-size:14px;font-family:inherit;color:var(--text);background:transparent}
+.search-box input::placeholder{color:var(--gray2)}
+
+/* filter groups */
+.filter-section{padding:0 16px 10px}
+.filter-label{font-size:11px;font-weight:600;color:var(--gray3);margin-bottom:6px;letter-spacing:.04em}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font-size:12px;padding:5px 12px;border-radius:20px;white-space:nowrap;border:1.5px solid var(--gray2);color:var(--gray3);background:var(--white);cursor:pointer;transition:all .15s;font-family:inherit;font-weight:500}
+.chip.on{background:var(--purple);border-color:var(--purple);color:var(--white)}
+.chip.on.cat{background:var(--purple-dark)}
+.chip-divider{height:1px;background:var(--gray1);margin:8px 16px}
+
+/* roulette btn */
+.roulette-bar{padding:0 16px 10px}
+.roulette-btn{width:100%;padding:11px;border-radius:14px;background:linear-gradient(135deg,var(--purple),var(--purple-dark));color:white;font-size:14px;font-weight:600;font-family:inherit;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:transform .12s}
+.roulette-btn:active{transform:scale(.97)}
+.roulette-btn svg{width:18px;height:18px;stroke:white;fill:none;stroke-width:2.2}
+
+/* map mini */
+.map-card{margin:0 16px 10px;border-radius:18px;overflow:hidden;height:130px;position:relative;background:linear-gradient(135deg,#DDD8F8,#EAE6FF);border:1.5px solid var(--purple-light);cursor:pointer;flex-shrink:0}
+.map-expand{position:absolute;bottom:10px;right:10px;background:var(--white);border-radius:10px;padding:5px 10px;font-size:11px;font-weight:500;color:var(--purple);cursor:pointer}
+.map-pin-wrap{position:absolute;display:flex;flex-direction:column;align-items:center}
+.map-pin-label{font-size:10px;font-weight:600;padding:4px 9px;border-radius:20px;white-space:nowrap;font-family:inherit;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+.map-pin-dot{width:6px;height:6px;border-radius:50%;margin-top:3px}
+.my-pin{position:absolute;width:18px;height:18px;background:var(--purple);border-radius:50%;border:3px solid white;box-shadow:0 0 0 4px rgba(91,79,207,.2)}
+
+/* cards */
+.sec-row{display:flex;justify-content:space-between;align-items:center;padding:0 20px 8px}
+.sec-title{font-size:14px;font-weight:600;color:var(--text)}
+.sec-cnt{font-size:12px;color:var(--gray3)}
+.rcards{flex:1;overflow-y:auto;padding:0 16px 80px;display:flex;flex-direction:column;gap:8px;scrollbar-width:none}
+.rcards::-webkit-scrollbar{display:none}
+.rcard{background:var(--white);border-radius:16px;border:1.5px solid #EDEAF8;padding:12px 14px;display:flex;gap:12px;align-items:center;cursor:pointer;transition:transform .12s}
+.rcard:active{transform:scale(.98)}
+.rcard.featured{border-color:var(--purple-mid)}
+.rcard.cafe-card{border-color:#CECBF6;background:#FAFAFF}
+.rcard-icon{width:44px;height:44px;border-radius:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.rcard-icon svg{width:22px;height:22px;stroke-width:1.8;fill:none}
+.rcard-body{flex:1;min-width:0}
+.rcard-name{font-size:14px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.badge{font-size:10px;padding:2px 7px;border-radius:20px;font-weight:500}
+.badge-hot{background:var(--coral-light);color:var(--coral)}
+.badge-new{background:var(--teal-light);color:var(--teal)}
+.badge-cafe{background:var(--purple-light);color:var(--purple)}
+.rcard-meta{font-size:11px;color:var(--gray3);margin-top:3px}
+.rcard-stars{color:var(--amber)}
+.rcard-right{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0}
+.price-pill{font-size:11px;font-weight:600;padding:4px 9px;border-radius:20px;background:var(--purple-light);color:var(--purple-dark)}
+.price-pill.cheap{background:#E0FAF1;color:#085041}
+.dist-pill{font-size:10px;color:var(--gray3)}
+
+/* bottom nav */
+.bnav{position:absolute;bottom:0;left:0;right:0;background:var(--white);border-top:1px solid #EDEAF8;display:flex;justify-content:space-around;align-items:center;padding:10px 10px 20px}
+.bnav-item{display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;padding:4px 12px}
+.bnav-item svg{width:22px;height:22px;stroke-width:1.8;fill:none;transition:stroke .15s}
+.bnav-item span{font-size:10px;font-weight:500;transition:color .15s}
+.bnav-item.active svg{stroke:var(--purple)}
+.bnav-item.active span{color:var(--purple)}
+.bnav-item:not(.active) svg{stroke:var(--gray2)}
+.bnav-item:not(.active) span{color:var(--gray2)}
+.bnav-add{width:52px;height:52px;background:var(--purple);border-radius:50%;display:flex;align-items:center;justify-content:center;margin-top:-20px;cursor:pointer;flex-shrink:0;box-shadow:0 4px 16px rgba(91,79,207,.4);transition:transform .15s}
+.bnav-add:active{transform:scale(.93)}
+.bnav-add svg{width:24px;height:24px;stroke:white;fill:none;stroke-width:2.2}
+
+/* roulette modal */
+.modal-overlay{position:absolute;inset:0;background:rgba(30,26,60,.6);display:flex;align-items:flex-end;justify-content:center;z-index:100;backdrop-filter:blur(4px)}
+.modal-overlay.hidden{display:none}
+.modal-sheet{background:var(--white);border-radius:28px 28px 0 0;padding:24px 24px 40px;width:100%;text-align:center}
+.modal-title{font-size:18px;font-weight:600;color:var(--text);margin-bottom:4px}
+.modal-sub{font-size:13px;color:var(--gray3);margin-bottom:24px}
+.roulette-wheel{width:200px;height:200px;border-radius:50%;margin:0 auto 24px;position:relative;overflow:hidden;border:4px solid var(--purple);box-shadow:0 8px 32px rgba(91,79,207,.3);transition:transform 3s cubic-bezier(.17,.67,.12,1)}
+.wheel-center{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:2}
+.wheel-center div{width:40px;height:40px;border-radius:50%;background:var(--white);border:3px solid var(--purple);display:flex;align-items:center;justify-content:center;font-size:18px}
+.spin-btn{background:var(--purple);color:white;border:none;border-radius:14px;padding:14px 32px;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:12px;width:100%;transition:transform .12s}
+.spin-btn:active{transform:scale(.97)}
+.spin-btn:disabled{opacity:.5;cursor:not-allowed}
+.modal-close{background:var(--gray1);color:var(--gray4);border:none;border-radius:14px;padding:12px 32px;font-size:14px;font-weight:500;font-family:inherit;cursor:pointer;width:100%}
+.result-card{background:var(--purple-light);border-radius:16px;padding:16px;margin-bottom:16px;text-align:left;display:none}
+.result-card.show{display:block}
+.result-name{font-size:18px;font-weight:600;color:var(--purple-dark);margin-bottom:4px}
+.result-info{font-size:13px;color:var(--gray3)}
+
+/* detail */
+#detail{background:var(--white)}
+.detail-hero{height:200px;position:relative;display:flex;align-items:center;justify-content:center}
+.back-btn{position:absolute;top:56px;left:16px;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.85);display:flex;align-items:center;justify-content:center;cursor:pointer}
+.back-btn svg{width:18px;height:18px;stroke:var(--text);fill:none;stroke-width:2.2}
+.fav-btn{position:absolute;top:56px;right:16px;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.85);display:flex;align-items:center;justify-content:center;cursor:pointer}
+.fav-btn svg{width:18px;height:18px;stroke:var(--coral);fill:none;stroke-width:2.2;transition:fill .2s}
+.fav-btn.on svg{fill:var(--coral)}
+.detail-body{padding:18px 22px;overflow-y:auto;height:calc(812px - 200px - 56px);scrollbar-width:none}
+.detail-body::-webkit-scrollbar{display:none}
+.detail-name{font-size:22px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.detail-sub{font-size:13px;color:var(--gray3);margin-top:5px;display:flex;gap:8px}
+.detail-rating{display:flex;align-items:center;gap:6px;margin:12px 0}
+.big-stars{font-size:18px;color:var(--amber)}
+.rating-val{font-size:18px;font-weight:600;color:var(--text)}
+.rating-cnt{font-size:13px;color:var(--gray3)}
+.tag-row{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:16px}
+.dtag{font-size:12px;padding:5px 12px;border-radius:20px;background:var(--gray1);color:var(--gray4);font-weight:500}
+.info-section{margin-bottom:16px}
+.info-title{font-size:12px;font-weight:600;color:var(--gray3);margin-bottom:8px;letter-spacing:.05em}
+.info-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--gray1);font-size:14px;color:var(--text)}
+.info-row svg{width:17px;height:17px;stroke:var(--purple-mid);fill:none;stroke-width:2;flex-shrink:0}
+.review-card{background:var(--gray1);border-radius:14px;padding:14px;margin-bottom:8px}
+.review-top{display:flex;justify-content:space-between;margin-bottom:6px}
+.reviewer{font-size:13px;font-weight:600;color:var(--text)}
+.review-stars{font-size:13px;color:var(--amber)}
+.review-text{font-size:13px;color:var(--gray4);line-height:1.6}
+.cta-bar{padding:12px 22px 20px;background:var(--white)}
+.cta-btn{width:100%;padding:15px;border-radius:16px;background:var(--purple);color:var(--white);font-size:15px;font-weight:600;font-family:inherit;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:transform .12s}
+.cta-btn:active{transform:scale(.97)}
+.cta-btn svg{width:18px;height:18px;stroke:white;fill:none;stroke-width:2.2}
+
+/* map screen */
+#mapscreen{background:#E8E4F8}
+.map-full{width:100%;height:100%;position:relative}
+.map-top-bar{position:absolute;top:0;left:0;right:0;padding:52px 16px 12px;display:flex;gap:10px;align-items:center;z-index:10}
+.map-back{width:38px;height:38px;border-radius:50%;background:var(--white);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.12)}
+.map-back svg{width:18px;height:18px;stroke:var(--text);fill:none;stroke-width:2.2}
+.map-search{flex:1;background:var(--white);border-radius:14px;padding:10px 14px;font-size:14px;color:var(--gray3);display:flex;align-items:center;gap:8px;box-shadow:0 2px 8px rgba(0,0,0,.12)}
+.map-search svg{width:16px;height:16px;stroke:var(--gray2);fill:none;stroke-width:2}
+.map-bottom-sheet{position:absolute;bottom:0;left:0;right:0;background:var(--white);border-radius:24px 24px 0 0;padding:12px 20px 30px;box-shadow:0 -4px 24px rgba(0,0,0,.1);z-index:10}
+.sheet-handle{width:36px;height:4px;background:var(--gray2);border-radius:20px;margin:0 auto 14px}
+.sheet-title{font-size:14px;font-weight:600;color:var(--text);margin-bottom:12px}
+.sheet-cards{display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;padding-bottom:4px}
+.sheet-cards::-webkit-scrollbar{display:none}
+.scard{min-width:130px;background:var(--gray1);border-radius:14px;padding:12px;cursor:pointer;flex-shrink:0;transition:transform .12s}
+.scard:active{transform:scale(.97)}
+.scard-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;margin-bottom:8px}
+.scard-icon svg{width:18px;height:18px;stroke-width:1.8;fill:none}
+.scard-name{font-size:12px;font-weight:600;color:var(--text);margin-bottom:3px}
+.scard-sub{font-size:10px;color:var(--gray3)}
+.scard-price{font-size:11px;font-weight:600;color:var(--purple);margin-top:6px}
+
+/* toast */
+.toast{position:absolute;bottom:100px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--text);color:white;padding:10px 20px;border-radius:20px;font-size:13px;font-weight:500;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;z-index:999}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* no result */
+.no-result{text-align:center;padding:40px 20px;color:var(--gray3);font-size:14px}
+.no-result div{font-size:32px;margin-bottom:12px}
+</style>
+</head>
+<body>
+<div class="phone-shell">
+
+<!-- HOME -->
+<div class="screen" id="home">
+  <div style="height:100%;display:flex;flex-direction:column;">
+    <div class="status">
+      <span>9:41</span>
+      <div style="display:flex;gap:5px;align-items:center">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8880B0" stroke-width="2"><path d="M1 6s4-4 11-4 11 4 11 4M5 10s2.5-2.5 7-2.5S19 10 19 10M9 14s1.5-1.5 3-1.5 3 1.5 3 1.5M13 18h.01"/></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8880B0" stroke-width="2"><rect x="2" y="7" width="18" height="11" rx="2"/><path d="M22 11v3" stroke-linecap="round"/></svg>
+      </div>
+    </div>
+
+    <div class="home-header">
+      <div>
+        <h1>밥약 지도 🍽️</h1>
+        <p>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          충남대학교 근처
+        </p>
+      </div>
+      <div class="avatar-btn">
+        <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      </div>
+    </div>
+
+    <div class="search-box">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input type="text" placeholder="음식점, 메뉴 검색..." id="search-input" oninput="applyFilters()"/>
+    </div>
+
+    <!-- 카테고리 필터 -->
+    <div class="filter-section">
+      <div class="filter-label">카테고리</div>
+      <div class="chips" id="cat-chips">
+        <button class="chip on" data-cat="전체" onclick="setCat(this)">전체</button>
+        <button class="chip" data-cat="한식" onclick="setCat(this)">🍚 한식</button>
+        <button class="chip" data-cat="양식" onclick="setCat(this)">🍝 양식</button>
+        <button class="chip" data-cat="일식" onclick="setCat(this)">🍣 일식</button>
+        <button class="chip" data-cat="중식" onclick="setCat(this)">🥢 중식</button>
+        <button class="chip" data-cat="카페" onclick="setCat(this)">☕ 카페</button>
+        <button class="chip" data-cat="기타" onclick="setCat(this)">🍗 기타</button>
+      </div>
+    </div>
+
+    <div class="chip-divider"></div>
+
+    <!-- 조건 필터 -->
+    <div class="filter-section">
+      <div class="filter-label">조건</div>
+      <div class="chips" id="cond-chips">
+        <button class="chip" data-cond="1만원 이하" onclick="toggleCond(this)">1만원 이하</button>
+        <button class="chip" data-cond="1만원대" onclick="toggleCond(this)">1만원대</button>
+        <button class="chip" data-cond="2만원대" onclick="toggleCond(this)">2만원대</button>
+        <button class="chip" data-cond="조용함" onclick="toggleCond(this)">🔇 조용함</button>
+        <button class="chip" data-cond="웨이팅 없음" onclick="toggleCond(this)">⚡ 웨이팅 없음</button>
+        <button class="chip" data-cond="인기많음" onclick="toggleCond(this)">🔥 인기많음</button>
+      </div>
+    </div>
+
+    <!-- 돌림판 버튼 -->
+    <div class="roulette-bar">
+      <button class="roulette-btn" onclick="openRoulette()">
+        <svg viewBox="0 0 24 24"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+        🎲 오늘 뭐 먹지? 돌림판 돌리기
+      </button>
+    </div>
+
+    <!-- 미니 지도 -->
+    <div class="map-card" onclick="goTo('mapscreen')">
+      <svg style="position:absolute;inset:0;opacity:.2" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+        <defs><pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M24 0L0 0 0 24" fill="none" stroke="#534AB7" stroke-width=".5"/></pattern></defs>
+        <rect width="100%" height="100%" fill="url(#grid)"/>
+      </svg>
+      <div class="map-pin-wrap" style="top:20px;left:60px"><div class="map-pin-label" style="background:#5B4FCF;color:white">파스타노트</div><div class="map-pin-dot" style="background:#5B4FCF"></div></div>
+      <div class="map-pin-wrap" style="top:50px;left:175px"><div class="map-pin-label" style="background:#12B886;color:white">온기식당</div><div class="map-pin-dot" style="background:#12B886"></div></div>
+      <div class="map-pin-wrap" style="top:75px;left:40px"><div class="map-pin-label" style="background:#F59F00;color:white">대삼겹</div><div class="map-pin-dot" style="background:#F59F00"></div></div>
+      <div class="my-pin" style="bottom:24px;right:80px"></div>
+      <div class="map-expand">🗺 지도 전체보기</div>
+    </div>
+
+    <div class="sec-row">
+      <span class="sec-title">주변 추천</span>
+      <span class="sec-cnt" id="result-cnt">10곳</span>
+    </div>
+
+    <div class="rcards" id="card-list"></div>
+
+    <div class="bnav">
+      <div class="bnav-item active">
+        <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        <span>홈</span>
+      </div>
+      <div class="bnav-item" onclick="goTo('mapscreen')">
+        <svg viewBox="0 0 24 24"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+        <span>지도</span>
+      </div>
+      <div class="bnav-add" onclick="openRoulette()">
+        <svg viewBox="0 0 24 24"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+      </div>
+      <div class="bnav-item" onclick="showToast('찜한 맛집')">
+        <svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
+        <span>찜</span>
+      </div>
+      <div class="bnav-item" onclick="showToast('마이페이지')">
+        <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <span>마이</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DETAIL -->
+<div class="screen hidden" id="detail">
+  <div style="height:100%;display:flex;flex-direction:column;">
+    <div class="detail-hero" id="detail-hero">
+      <div class="back-btn" onclick="goBack()"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></div>
+      <div class="fav-btn" id="fav-btn" onclick="toggleFav()"><svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg></div>
+      <div id="detail-hero-icon"></div>
+    </div>
+    <div class="detail-body">
+      <div class="detail-name" id="detail-name"></div>
+      <div class="detail-sub" id="detail-sub"></div>
+      <div class="detail-rating">
+        <span class="big-stars" id="detail-stars"></span>
+        <span class="rating-val" id="detail-rating-val"></span>
+        <span class="rating-cnt" id="detail-rating-cnt"></span>
+      </div>
+      <div class="tag-row" id="detail-tags"></div>
+      <div class="info-section">
+        <div class="info-title">정보</div>
+        <div class="info-row"><svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg><span id="detail-addr"></span></div>
+        <div class="info-row"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span id="detail-hours"></span></div>
+        <div class="info-row"><svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg><span id="detail-price"></span></div>
+      </div>
+      <div class="info-section">
+        <div class="info-title">리뷰</div>
+        <div id="detail-reviews"></div>
+      </div>
+    </div>
+    <div class="cta-bar">
+      <button class="cta-btn" onclick="showToast('밥약 장소로 저장했어요! 💜')">
+        <svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+        밥약 장소로 저장하기
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- MAP -->
+<div class="screen hidden" id="mapscreen">
+  <div class="map-full">
+    <div id="kakao-map" style="width:100%;height:100%;"></div>
+    <div class="map-top-bar">
+      <div class="map-back" onclick="goBack()"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></div>
+      <div class="map-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg><span>충남대 주변 밥약 장소</span></div>
+    </div>
+    <div class="map-bottom-sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title">근처 밥약 장소</div>
+      <div class="sheet-cards" id="sheet-cards"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ROULETTE MODAL -->
+<div class="modal-overlay hidden" id="roulette-modal">
+  <div class="modal-sheet">
+    <div class="modal-title">🎲 오늘의 밥약 뽑기</div>
+    <div class="modal-sub" id="roulette-sub">필터 적용한 곳 중에서 랜덤으로!</div>
+    <div class="result-card" id="result-card">
+      <div class="result-name" id="result-name"></div>
+      <div class="result-info" id="result-info"></div>
+    </div>
+    <div class="roulette-wheel" id="roulette-wheel">
+      <canvas id="wheel-canvas" width="200" height="200"></canvas>
+      <div class="wheel-center"><div>🍽️</div></div>
+    </div>
+    <button class="spin-btn" id="spin-btn" onclick="spinWheel()">돌리기!</button>
+    <button class="modal-close" onclick="closeRoulette()">닫기</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+</div>
+
+<script>
+const restaurants = [
+  { name:'파스타노트', badge:'인기', cat:'양식', priceRange:'2만원대', popular:true,
+    loc:'후문 도보 5분', stars:'★★★★★', rating:'4.7', cnt:'리뷰 84개',
+    tags:['분위기 있음','조용함','콘센트 있음','웨이팅 없음'],
+    addr:'대전 유성구 대학로 100', hours:'11:00–21:30 (월 휴무)', price:'1인 평균 18,000원',
+    heroColor:'#EDE9FF', iconColor:'#5B4FCF', emoji:'🍝',
+    lat:36.3627, lng:127.3461,
+    reviews:[{name:'충대생 A',stars:'★★★★★',text:'분위기 진짜 좋아요. 밥약으로 딱!'},{name:'충대생 B',stars:'★★★★☆',text:'파스타 맛있고 조용해서 대화하기 좋아요.'}]
+  },
+  { name:'온기식당', badge:'신규', cat:'한식', priceRange:'1만원대', popular:false,
+    loc:'정문 도보 3분', stars:'★★★★☆', rating:'4.2', cnt:'리뷰 51개',
+    tags:['조용함','웨이팅 없음','밥약 추천'],
+    addr:'대전 유성구 궁동 102-3', hours:'10:00–20:00 (주말 휴무)', price:'1인 평균 9,000원',
+    heroColor:'#E0FAF1', iconColor:'#12B886', emoji:'🍚',
+    lat:36.3645, lng:127.3448,
+    reviews:[{name:'충대생 C',stars:'★★★★★',text:'가성비 최고!'},{name:'충대생 D',stars:'★★★★☆',text:'조용하고 깔끔해요.'}]
+  },
+  { name:'대삼겹', badge:'', cat:'기타', priceRange:'1만원대', popular:false,
+    loc:'쪽문 도보 2분', stars:'★★★★☆', rating:'4.0', cnt:'리뷰 38개',
+    tags:['웨이팅 없음','주차 가능'],
+    addr:'대전 유성구 어은동 30-5', hours:'11:30–22:00', price:'1인 평균 12,000원',
+    heroColor:'#FFF3CC', iconColor:'#F59F00', emoji:'🥩',
+    lat:36.3612, lng:127.3455,
+    reviews:[{name:'충대생 E',stars:'★★★★☆',text:'삼겹 두툼하고 맛있어요.'},{name:'충대생 F',stars:'★★★☆☆',text:'가깝고 편해요.'}]
+  },
+  { name:'수제버거랩', badge:'인기', cat:'양식', priceRange:'1만원대', popular:true,
+    loc:'정문 도보 6분', stars:'★★★★★', rating:'4.6', cnt:'리뷰 120개',
+    tags:['조용함','웨이팅 없음','데이트 추천'],
+    addr:'대전 유성구 궁동 105-2', hours:'11:00–21:00 (화 휴무)', price:'1인 평균 13,000원',
+    heroColor:'#FDECEA', iconColor:'#E8543A', emoji:'🍔',
+    lat:36.3650, lng:127.3465,
+    reviews:[{name:'충대생 G',stars:'★★★★★',text:'패티가 진짜 두껍고 맛있어요!'},{name:'충대생 H',stars:'★★★★☆',text:'밥약으로 여기 자주 와요 ㅋㅋ'}]
+  },
+  { name:'교동짬뽕', badge:'', cat:'중식', priceRange:'1만원 이하', popular:false,
+    loc:'후문 도보 4분', stars:'★★★★☆', rating:'4.3', cnt:'리뷰 67개',
+    tags:['웨이팅 없음','가성비'],
+    addr:'대전 유성구 대학로 99', hours:'10:30–21:30', price:'1인 평균 8,000원',
+    heroColor:'#FAECE7', iconColor:'#993C1D', emoji:'🥢',
+    lat:36.3620, lng:127.3470,
+    reviews:[{name:'충대생 I',stars:'★★★★☆',text:'짬뽕 국물이 진짜 칼칼해요.'},{name:'충대생 J',stars:'★★★★★',text:'가성비 최고 중식당!'}]
+  },
+  { name:'카페봄날', badge:'신규', cat:'카페', priceRange:'1만원대', popular:false,
+    loc:'정문 도보 7분', stars:'★★★★★', rating:'4.8', cnt:'리뷰 95개',
+    tags:['분위기 있음','조용함','콘센트 있음','데이트 추천'],
+    addr:'대전 유성구 궁동 88-1', hours:'09:00–22:00', price:'1인 평균 11,000원',
+    heroColor:'#E0FAF1', iconColor:'#0F6E56', emoji:'☕',
+    lat:36.3658, lng:127.3440,
+    reviews:[{name:'충대생 K',stars:'★★★★★',text:'인테리어 너무 예뻐요. 밥약 후 카페로 완벽!'},{name:'충대생 L',stars:'★★★★★',text:'브런치 메뉴가 진짜 맛있어요.'}]
+  },
+  { name:'돈치킨', badge:'', cat:'기타', priceRange:'1만원대', popular:false,
+    loc:'쪽문 도보 3분', stars:'★★★★☆', rating:'4.1', cnt:'리뷰 44개',
+    tags:['웨이팅 없음','단체 가능'],
+    addr:'대전 유성구 어은동 22-7', hours:'16:00–24:00', price:'1인 평균 14,000원',
+    heroColor:'#FFF3CC', iconColor:'#BA7517', emoji:'🍗',
+    lat:36.3608, lng:127.3445,
+    reviews:[{name:'충대생 M',stars:'★★★★☆',text:'치킨 바삭하고 맥주랑 잘 어울려요.'},{name:'충대생 N',stars:'★★★★☆',text:'저녁 밥약으로 딱이에요!'}]
+  },
+  { name:'순대국밥집', badge:'', cat:'한식', priceRange:'1만원 이하', popular:false,
+    loc:'후문 도보 2분', stars:'★★★★☆', rating:'4.2', cnt:'리뷰 33개',
+    tags:['가성비','웨이팅 없음'],
+    addr:'대전 유성구 대학로 112', hours:'07:00–20:00', price:'1인 평균 8,000원',
+    heroColor:'#E1F5EE', iconColor:'#0F6E56', emoji:'🍲',
+    lat:36.3635, lng:127.3475,
+    reviews:[{name:'충대생 O',stars:'★★★★☆',text:'아침에 먹으면 든든해요.'},{name:'충대생 P',stars:'★★★★☆',text:'국물이 진해서 좋아요.'}]
+  },
+  { name:'스시로', badge:'인기', cat:'일식', priceRange:'2만원대', popular:true,
+    loc:'정문 도보 10분', stars:'★★★★★', rating:'4.5', cnt:'리뷰 78개',
+    tags:['분위기 있음','데이트 추천','인기많음'],
+    addr:'대전 유성구 궁동 77-3', hours:'11:30–21:00 (월 휴무)', price:'1인 평균 22,000원',
+    heroColor:'#EDE9FF', iconColor:'#534AB7', emoji:'🍣',
+    lat:36.3660, lng:127.3455,
+    reviews:[{name:'충대생 Q',stars:'★★★★★',text:'특별한 날 밥약으로 딱이에요!'},{name:'충대생 R',stars:'★★★★☆',text:'신선하고 맛있어요. 웨이팅 있지만 가치 있음.'}]
+  },
+  { name:'달콤커피', badge:'', cat:'카페', priceRange:'1만원 이하', popular:false,
+    loc:'후문 도보 3분', stars:'★★★★☆', rating:'4.3', cnt:'리뷰 59개',
+    tags:['조용함','콘센트 있음','웨이팅 없음'],
+    addr:'대전 유성구 어은동 55-2', hours:'08:00–22:00', price:'1인 평균 6,000원',
+    heroColor:'#EDE9FF', iconColor:'#5B4FCF', emoji:'☕',
+    lat:36.3618, lng:127.3462,
+    reviews:[{name:'충대생 S',stars:'★★★★☆',text:'밥약 후 카페로 딱! 조용해요.'},{name:'충대생 T',stars:'★★★★★',text:'라떼가 맛있어요. 자리도 넓고요.'}]
+  },
+];
+
+let history = ['home'];
+let kakaoMap = null;
+let activeCat = '전체';
+let activeConds = new Set();
+
+function getFiltered() {
+  const q = document.getElementById('search-input').value.toLowerCase();
+  return restaurants.filter(r => {
+    const catOk = activeCat === '전체' || r.cat === activeCat;
+    const condOk = [...activeConds].every(c => {
+      if (c === '1만원 이하') return r.priceRange === '1만원 이하';
+      if (c === '1만원대') return r.priceRange === '1만원대';
+      if (c === '2만원대') return r.priceRange === '2만원대';
+      if (c === '조용함') return r.tags.includes('조용함');
+      if (c === '웨이팅 없음') return r.tags.includes('웨이팅 없음');
+      if (c === '인기많음') return r.popular;
+      return true;
+    });
+    const searchOk = !q || r.name.toLowerCase().includes(q) || r.cat.toLowerCase().includes(q);
+    return catOk && condOk && searchOk;
+  });
+}
+
+function setCat(el) {
+  document.querySelectorAll('#cat-chips .chip').forEach(c => c.classList.remove('on'));
+  el.classList.add('on');
+  activeCat = el.dataset.cat;
+  applyFilters();
+}
+
+function toggleCond(el) {
+  const cond = el.dataset.cond;
+  const priceGroup = ['1만원 이하','1만원대','2만원대'];
+  if (priceGroup.includes(cond)) {
+    priceGroup.forEach(p => { activeConds.delete(p); document.querySelector(`[data-cond="${p}"]`).classList.remove('on'); });
+  }
+  if (activeConds.has(cond)) { activeConds.delete(cond); el.classList.remove('on'); }
+  else { activeConds.add(cond); el.classList.add('on'); }
+  applyFilters();
+}
+
+function applyFilters() {
+  const filtered = getFiltered();
+  document.getElementById('result-cnt').textContent = filtered.length + '곳';
+  const list = document.getElementById('card-list');
+  if (filtered.length === 0) {
+    list.innerHTML = '<div class="no-result"><div>😅</div>조건에 맞는 장소가 없어요.<br>필터를 바꿔보세요!</div>';
+    return;
+  }
+  list.innerHTML = filtered.map((r, i) => {
+    const origIdx = restaurants.indexOf(r);
+    const isCafe = r.cat === '카페';
+    const priceCls = r.priceRange === '1만원 이하' ? 'cheap' : '';
+    return `<div class="rcard ${i===0&&!isCafe?'featured':''} ${isCafe?'cafe-card':''}" onclick="goDetail(${origIdx})">
+      <div class="rcard-icon" style="background:${r.heroColor}"><span style="font-size:22px">${r.emoji}</span></div>
+      <div class="rcard-body">
+        <div class="rcard-name">${r.name} ${r.badge?`<span class="badge ${isCafe?'badge-cafe':r.badge==='인기'?'badge-hot':'badge-new'}">${r.badge}</span>`:''} ${isCafe?'<span class="badge badge-cafe">카페</span>':''}</div>
+        <div class="rcard-meta"><span class="rcard-stars">${r.stars}</span> ${r.rating} · ${r.cat} · ${r.loc.split(' ')[0]}</div>
+      </div>
+      <div class="rcard-right">
+        <span class="price-pill ${priceCls}">${r.priceRange}</span>
+        <span class="dist-pill">${r.loc.includes('분')?r.loc.match(/\d+분/)[0]:''}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  // sheet cards
+  const sheet = document.getElementById('sheet-cards');
+  sheet.innerHTML = filtered.slice(0,6).map(r => {
+    const origIdx = restaurants.indexOf(r);
+    return `<div class="scard" onclick="goDetail(${origIdx})">
+      <div class="scard-icon" style="background:${r.heroColor}"><span style="font-size:20px">${r.emoji}</span></div>
+      <div class="scard-name">${r.name}</div>
+      <div class="scard-sub">${r.stars} ${r.rating}</div>
+      <div class="scard-price">${r.priceRange}</div>
+    </div>`;
+  }).join('');
+}
+
+// 지도
+function initKakaoMap() {
+  if (kakaoMap) return;
+  const container = document.getElementById('kakao-map');
+  kakaoMap = new kakao.maps.Map(container, { center: new kakao.maps.LatLng(36.3635, 127.3458), level: 4 });
+  restaurants.forEach((r, idx) => {
+    const content = `<div onclick="goDetail(${idx})" style="background:${r.iconColor};color:white;padding:6px 12px;border-radius:20px;font-size:12px;font-weight:600;font-family:'Pretendard',sans-serif;box-shadow:0 3px 10px rgba(0,0,0,.25);cursor:pointer;white-space:nowrap;">${r.emoji} ${r.name}</div>`;
+    new kakao.maps.CustomOverlay({ position: new kakao.maps.LatLng(r.lat, r.lng), content, yAnchor: 1.4 }).setMap(kakaoMap);
+  });
+  const myContent = `<div style="width:18px;height:18px;background:#5B4FCF;border-radius:50%;border:3px solid white;box-shadow:0 0 0 5px rgba(91,79,207,.25);"></div>`;
+  new kakao.maps.CustomOverlay({ position: new kakao.maps.LatLng(36.3632, 127.3458), content: myContent, yAnchor: 0.5 }).setMap(kakaoMap);
+}
+
+// 돌림판
+function openRoulette() {
+  const filtered = getFiltered();
+  if (filtered.length === 0) { showToast('조건에 맞는 곳이 없어요!'); return; }
+  document.getElementById('roulette-sub').textContent = `필터된 ${filtered.length}곳 중에서 랜덤으로!`;
+  document.getElementById('result-card').classList.remove('show');
+  document.getElementById('spin-btn').disabled = false;
+  document.getElementById('spin-btn').textContent = '돌리기!';
+  drawWheel(filtered);
+  document.getElementById('roulette-modal').classList.remove('hidden');
+}
+
+function closeRoulette() { document.getElementById('roulette-modal').classList.add('hidden'); }
+
+function drawWheel(places) {
+  const canvas = document.getElementById('wheel-canvas');
+  const ctx = canvas.getContext('2d');
+  const cx = 100, cy = 100, r = 96;
+  const colors = ['#5B4FCF','#12B886','#F59F00','#E8543A','#0F6E56','#534AB7','#BA7517','#993C1D'];
+  const n = Math.min(places.length, 8);
+  const arc = (2 * Math.PI) / n;
+  ctx.clearRect(0, 0, 200, 200);
+  for (let i = 0; i < n; i++) {
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, r, i * arc, (i + 1) * arc);
+    ctx.fillStyle = colors[i % colors.length];
+    ctx.fill();
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(i * arc + arc / 2);
+    ctx.fillStyle = 'white';
+    ctx.font = 'bold 11px Pretendard, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(places[i].name.length > 5 ? places[i].name.slice(0,5)+'…' : places[i].name, r - 8, 4);
+    ctx.restore();
+  }
+}
+
+let spinning = false;
+function spinWheel() {
+  if (spinning) return;
+  spinning = true;
+  const filtered = getFiltered();
+  const btn = document.getElementById('spin-btn');
+  btn.disabled = true;
+  btn.textContent = '돌리는 중...';
+  const wheel = document.getElementById('roulette-wheel');
+  const deg = 1440 + Math.floor(Math.random() * 360);
+  wheel.style.transition = 'transform 3s cubic-bezier(.17,.67,.12,1)';
+  wheel.style.transform = `rotate(${deg}deg)`;
+  setTimeout(() => {
+    const picked = filtered[Math.floor(Math.random() * filtered.length)];
+    document.getElementById('result-name').textContent = picked.emoji + ' ' + picked.name;
+    document.getElementById('result-info').textContent = `${picked.cat} · ${picked.loc} · ${picked.priceRange}`;
+    document.getElementById('result-card').classList.add('show');
+    btn.textContent = '다시 돌리기';
+    btn.disabled = false;
+    spinning = false;
+    setTimeout(() => { wheel.style.transition = 'none'; wheel.style.transform = 'rotate(0deg)'; drawWheel(filtered); }, 100);
+  }, 3100);
+}
+
+// 화면 전환
+function goTo(id) {
+  const cur = document.getElementById(history[history.length-1]);
+  const next = document.getElementById(id);
+  cur.classList.add('slide-back');
+  next.classList.remove('hidden');
+  next.style.transform = 'translateX(100%)';
+  requestAnimationFrame(() => { next.style.transform = 'translateX(0)'; });
+  history.push(id);
+  if (id === 'mapscreen') setTimeout(initKakaoMap, 400);
+}
+
+function goBack() {
+  if (history.length <= 1) return;
+  const cur = document.getElementById(history.pop());
+  const prev = document.getElementById(history[history.length-1]);
+  cur.style.transform = 'translateX(100%)';
+  prev.classList.remove('slide-back');
+  prev.style.transform = 'translateX(0)';
+  setTimeout(() => { cur.classList.add('hidden'); cur.style.transform = ''; }, 350);
+}
+
+function goDetail(idx) {
+  const r = restaurants[idx];
+  document.getElementById('detail-hero').style.background = r.heroColor;
+  document.getElementById('detail-hero-icon').innerHTML = `<span style="font-size:64px">${r.emoji}</span>`;
+  document.getElementById('detail-name').innerHTML = r.name + (r.badge ? ` <span class="badge badge-hot">${r.badge}</span>` : '');
+  document.getElementById('detail-sub').innerHTML = `<span>${r.cat}</span><span>·</span><span>${r.loc}</span>`;
+  document.getElementById('detail-stars').textContent = r.stars;
+  document.getElementById('detail-rating-val').textContent = r.rating;
+  document.getElementById('detail-rating-cnt').textContent = r.cnt;
+  document.getElementById('detail-tags').innerHTML = r.tags.map(t => `<span class="dtag">${t}</span>`).join('');
+  document.getElementById('detail-addr').textContent = r.addr;
+  document.getElementById('detail-hours').textContent = r.hours;
+  document.getElementById('detail-price').textContent = r.price;
+  document.getElementById('detail-reviews').innerHTML = r.reviews.map(rv =>
+    `<div class="review-card"><div class="review-top"><span class="reviewer">${rv.name}</span><span class="review-stars">${rv.stars}</span></div><div class="review-text">${rv.text}</div></div>`
+  ).join('');
+  document.getElementById('fav-btn').classList.remove('on');
+  goTo('detail');
+}
+
+function toggleFav() {
+  document.getElementById('fav-btn').classList.toggle('on');
+  showToast(document.getElementById('fav-btn').classList.contains('on') ? '찜 목록에 추가했어요! 💜' : '찜 목록에서 제거했어요');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// 초기화
+applyFilters();
+</script>
+</body>
+</html>
